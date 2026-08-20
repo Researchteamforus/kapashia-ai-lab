@@ -1,18 +1,18 @@
 {
-  "checked_at_utc": "2026-08-20T09:44:58.278234+00:00",
+  "checked_at_utc": "2026-08-20T09:46:09.236754+00:00",
   "coordinator": "https://kapashia-ai-lab-3kct.onrender.com",
   "target_node": "Node2-GPU-T4-x2",
   "coordinator_reachable": true,
   "online_nodes": [
     "Node2-GPU-T4-x2"
   ],
-  "task_id": "fec5f5cb-290a-436e-939d-fc514e878a45",
-  "status": "completed_without_marker",
+  "task_id": "44c2e9dc-f2b7-4a3b-ab17-9147e0c870f3",
+  "status": "passed",
   "responses": {
     "Node2-GPU-T4-x2": {
-      "output": "GITHUB_RENDER_STRESS_TEST_STARTED\nHostname: 24839d513c43\nPlatform: Linux-6.12.90+-x86_64-with-glibc2.35\nCPU cores detected: 4\nStress duration seconds: 120\nParent PID: 43\n\n--- RUNTIME ERROR ---\nTraceback (most recent call last):\n  File \"/kaggle/working/client.py\", line 98, in execute_user_code\n    exec(code, local_env)\n  File \"<string>\", line 30, in <module>\n  File \"/usr/lib/python3.12/multiprocessing/pool.py\", line 367, in map\n    return self._map_async(func, iterable, mapstar, chunksize).get()\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.12/multiprocessing/pool.py\", line 774, in get\n    raise self._value\n  File \"/usr/lib/python3.12/multiprocessing/pool.py\", line 540, in _handle_tasks\n    put(task)\n  File \"/usr/lib/python3.12/multiprocessing/connection.py\", line 206, in send\n    self._send_bytes(_ForkingPickler.dumps(obj))\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.12/multiprocessing/reduction.py\", line 51, in dumps\n    cls(buf, protocol).dump(obj)\n_pickle.PicklingError: Can't pickle <function cpu_bound_task at 0x79bcb45e23e0>: attribute lookup cpu_bound_task on __main__ failed\n",
-      "error": "Traceback (most recent call last):\n  File \"/kaggle/working/client.py\", line 98, in execute_user_code\n    exec(code, local_env)\n  File \"<string>\", line 30, in <module>\n  File \"/usr/lib/python3.12/multiprocessing/pool.py\", line 367, in map\n    return self._map_async(func, iterable, mapstar, chunksize).get()\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.12/multiprocessing/pool.py\", line 774, in get\n    raise self._value\n  File \"/usr/lib/python3.12/multiprocessing/pool.py\", line 540, in _handle_tasks\n    put(task)\n  File \"/usr/lib/python3.12/multiprocessing/connection.py\", line 206, in send\n    self._send_bytes(_ForkingPickler.dumps(obj))\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.12/multiprocessing/reduction.py\", line 51, in dumps\n    cls(buf, protocol).dump(obj)\n_pickle.PicklingError: Can't pickle <function cpu_bound_task at 0x79bcb45e23e0>: attribute lookup cpu_bound_task on __main__ failed\n",
-      "completed_at": "09:45:00"
+      "output": "GITHUB_RENDER_STRESS_TEST_STARTED\nHostname: 24839d513c43\nPlatform: Linux-6.12.90+-x86_64-with-glibc2.35\nCPU cores detected: 4\nStress duration seconds: 120\nParent PID: 43\nPer-process results: [{'worker': 1, 'returncode': 0, 'stdout': '531200000,120.02', 'stderr': ''}, {'worker': 2, 'returncode': 0, 'stdout': '533200000,120.03', 'stderr': ''}, {'worker': 3, 'returncode': 0, 'stdout': '501800000,120.04', 'stderr': ''}, {'worker': 4, 'returncode': 0, 'stdout': '551400000,120.02', 'stderr': ''}]\nTotal active run time seconds: 120.17\nGITHUB_RENDER_STRESS_TEST_OK\n",
+      "error": null,
+      "completed_at": "09:48:10"
     }
   },
   "error": null
