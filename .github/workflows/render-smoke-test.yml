@@ -76,22 +76,26 @@ jobs:
           import multiprocessing
           import os
           import platform
+          import subprocess
+          import sys
           import time
 
           DURATION = 120
-
-          def cpu_bound_task(args):
-              worker_index, duration = args
-              start = time.time()
-              iterations = 0
-              x = 1.000001
-              while time.time() - start < duration:
-                  for _ in range(200000):
-                      x = (x * 1.0000001) / 1.0000001
-                  iterations += 200000
-              return {"worker": worker_index, "iterations": iterations, "elapsed": round(time.time() - start, 2)}
-
           cores = multiprocessing.cpu_count()
+
+          child_code = r"""
+          import os, time
+          duration = float(os.environ['STRESS_DURATION'])
+          start = time.time()
+          iterations = 0
+          x = 1.000001
+          while time.time() - start < duration:
+              for _ in range(200000):
+                  x = (x * 1.0000001) / 1.0000001
+              iterations += 200000
+          print(str(iterations) + ',' + str(round(time.time() - start, 2)))
+          """
+
           print("GITHUB_RENDER_STRESS_TEST_STARTED")
           print("Hostname:", platform.node())
           print("Platform:", platform.platform())
@@ -99,13 +103,39 @@ jobs:
           print("Stress duration seconds:", DURATION)
           print("Parent PID:", os.getpid())
 
+          env = os.environ.copy()
+          env['STRESS_DURATION'] = str(DURATION)
+          procs = []
           start_total = time.time()
-          with multiprocessing.Pool(processes=cores) as pool:
-              results = pool.map(cpu_bound_task, [(i + 1, DURATION) for i in range(cores)])
-          elapsed = time.time() - start_total
+          for i in range(cores):
+              p = subprocess.Popen(
+                  [sys.executable, '-c', child_code],
+                  stdout=subprocess.PIPE,
+                  stderr=subprocess.PIPE,
+                  text=True,
+                  env=env,
+              )
+              procs.append((i + 1, p))
 
+          results = []
+          failed = False
+          for worker_index, p in procs:
+              stdout, stderr = p.communicate(timeout=DURATION + 30)
+              result = {
+                  'worker': worker_index,
+                  'returncode': p.returncode,
+                  'stdout': stdout.strip(),
+                  'stderr': stderr.strip(),
+              }
+              results.append(result)
+              if p.returncode != 0:
+                  failed = True
+
+          elapsed = time.time() - start_total
           print("Per-process results:", results)
           print("Total active run time seconds:", round(elapsed, 2))
+          if failed:
+              raise RuntimeError("One or more CPU stress subprocesses failed")
           print("GITHUB_RENDER_STRESS_TEST_OK")
           '''
                   dispatched = post_json(
@@ -119,7 +149,7 @@ jobs:
                   if not task_id:
                       report["status"] = "dispatch_missing_task_id"
                   else:
-                      deadline = time.time() + 200
+                      deadline = time.time() + 210
                       while time.time() < deadline:
                           result = get_json(f"{BASE}/get_task_result/{task_id}")
                           status = result.get("status")
