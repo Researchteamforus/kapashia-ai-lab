@@ -1,4 +1,4 @@
-name: Render Coordinator Smoke Test
+name: Render Coordinator 2-Minute Stress Test
 
 on:
   push:
@@ -10,16 +10,16 @@ permissions:
   contents: write
 
 jobs:
-  smoke-test:
+  stress-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
         with:
           ref: chatgpt/render-smoke-test
 
-      - name: Check coordinator and run harmless worker test
+      - name: Dispatch 2-minute CPU stress test through Render coordinator
         shell: bash
         run: |
           python - <<'PY'
@@ -29,9 +29,11 @@ jobs:
           import urllib.request
 
           BASE = "https://kapashia-ai-lab-3kct.onrender.com"
+          TARGET = "Node2-GPU-T4-x2"
           report = {
               "checked_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
               "coordinator": BASE,
+              "target_node": TARGET,
               "coordinator_reachable": False,
               "online_nodes": [],
               "task_id": None,
@@ -41,7 +43,7 @@ jobs:
           }
 
           def get_json(url, timeout=20):
-              req = urllib.request.Request(url, headers={"User-Agent": "github-actions-render-smoke-test"})
+              req = urllib.request.Request(url, headers={"User-Agent": "github-actions-render-stress-test"})
               with urllib.request.urlopen(req, timeout=timeout) as response:
                   return json.loads(response.read().decode("utf-8"))
 
@@ -53,7 +55,7 @@ jobs:
                   method="POST",
                   headers={
                       "Content-Type": "application/json",
-                      "User-Agent": "github-actions-render-smoke-test",
+                      "User-Agent": "github-actions-render-stress-test",
                   },
               )
               with urllib.request.urlopen(req, timeout=timeout) as response:
@@ -67,20 +69,49 @@ jobs:
               report["online_nodes"] = [n.get("node_id") for n in online_nodes]
               print("Online nodes:", report["online_nodes"])
 
-              if not online_nodes:
-                  report["status"] = "coordinator_reachable_no_online_workers"
+              if TARGET not in report["online_nodes"]:
+                  report["status"] = "target_not_online"
               else:
                   code = r'''
+          import multiprocessing
           import os
           import platform
-          import multiprocessing
-          print("GITHUB_RENDER_SMOKE_TEST_OK")
+          import time
+
+          DURATION = 120
+
+          def cpu_bound_task(args):
+              worker_index, duration = args
+              start = time.time()
+              iterations = 0
+              x = 1.000001
+              while time.time() - start < duration:
+                  for _ in range(200000):
+                      x = (x * 1.0000001) / 1.0000001
+                  iterations += 200000
+              return {"worker": worker_index, "iterations": iterations, "elapsed": round(time.time() - start, 2)}
+
+          cores = multiprocessing.cpu_count()
+          print("GITHUB_RENDER_STRESS_TEST_STARTED")
           print("Hostname:", platform.node())
           print("Platform:", platform.platform())
-          print("CPU cores:", multiprocessing.cpu_count())
-          print("PID:", os.getpid())
+          print("CPU cores detected:", cores)
+          print("Stress duration seconds:", DURATION)
+          print("Parent PID:", os.getpid())
+
+          start_total = time.time()
+          with multiprocessing.Pool(processes=cores) as pool:
+              results = pool.map(cpu_bound_task, [(i + 1, DURATION) for i in range(cores)])
+          elapsed = time.time() - start_total
+
+          print("Per-process results:", results)
+          print("Total active run time seconds:", round(elapsed, 2))
+          print("GITHUB_RENDER_STRESS_TEST_OK")
           '''
-                  dispatched = post_json(f"{BASE}/run_code", {"code": code, "targets": []})
+                  dispatched = post_json(
+                      f"{BASE}/run_code",
+                      {"code": code, "targets": [TARGET]},
+                  )
                   task_id = dispatched.get("task_id")
                   report["task_id"] = task_id
                   print("Task ID:", task_id)
@@ -88,7 +119,7 @@ jobs:
                   if not task_id:
                       report["status"] = "dispatch_missing_task_id"
                   else:
-                      deadline = time.time() + 75
+                      deadline = time.time() + 200
                       while time.time() < deadline:
                           result = get_json(f"{BASE}/get_task_result/{task_id}")
                           status = result.get("status")
@@ -97,7 +128,7 @@ jobs:
                               responses = result.get("responses", {})
                               report["responses"] = responses
                               marker_seen = any(
-                                  "GITHUB_RENDER_SMOKE_TEST_OK" in (r.get("output") or "")
+                                  "GITHUB_RENDER_STRESS_TEST_OK" in (r.get("output") or "")
                                   for r in responses.values()
                               )
                               report["status"] = "passed" if marker_seen else "completed_without_marker"
@@ -105,41 +136,41 @@ jobs:
                           if status == "overwritten":
                               report["status"] = "overwritten"
                               break
-                          time.sleep(3)
+                          time.sleep(4)
                       else:
                           report["status"] = "timed_out_waiting_for_worker"
 
           except Exception as exc:
               report["status"] = "request_failed"
               report["error"] = f"{type(exc).__name__}: {exc}"
-              print("Smoke test exception:", report["error"])
+              print("Stress test exception:", report["error"])
 
-          with open("smoke-test-result.json", "w", encoding="utf-8") as f:
+          with open("stress-test-result.json", "w", encoding="utf-8") as f:
               json.dump(report, f, indent=2, ensure_ascii=False)
               f.write("\n")
 
           print(json.dumps(report, indent=2, ensure_ascii=False))
           PY
 
-      - name: Commit smoke-test report
+      - name: Commit stress-test report
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- smoke-test-result.json
+          git add -- stress-test-result.json
           if ! git diff --cached --quiet; then
-            git commit -m "Record Render smoke test result [skip ci]"
+            git commit -m "Record 2-minute stress test result [skip ci]"
             git push origin HEAD:chatgpt/render-smoke-test
           fi
 
-      - name: Evaluate smoke test
+      - name: Evaluate stress test
         shell: bash
         run: |
           python - <<'PY'
           import json
           import sys
-          with open("smoke-test-result.json", "r", encoding="utf-8") as f:
+          with open("stress-test-result.json", "r", encoding="utf-8") as f:
               report = json.load(f)
-          print("Final smoke-test status:", report.get("status"))
+          print("Final stress-test status:", report.get("status"))
           sys.exit(0 if report.get("status") == "passed" else 1)
           PY
