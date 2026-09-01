@@ -1,0 +1,41 @@
+name: SRMA Field Scope Export
+
+on:
+  push:
+    branches:
+      - srma-final-api-rerun-20260901
+    paths:
+      - '.github/workflows/srma-field-scope-export.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scoped-export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run scoped exports
+        continue-on-error: true
+        run: |
+          python field_scope_qc/export_scoped.py 2>&1 | tee field_scope_export.log
+      - name: Create checksums
+        if: always()
+        run: |
+          find field_scope_exports -type f -print0 2>/dev/null | sort -z | xargs -0 -r sha256sum > field_scope_sha256_manifest.txt
+          cat field_scope_sha256_manifest.txt || true
+      - name: Upload scoped export evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: srma-field-scope-exports-20260901
+          retention-days: 30
+          path: |
+            field_scope_export.log
+            field_scope_sha256_manifest.txt
+            field_scope_exports/**
