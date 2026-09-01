@@ -1,0 +1,47 @@
+name: SRMA API Count Only
+
+on:
+  push:
+    branches:
+      - srma-final-api-rerun-20260901
+    paths:
+      - '.github/workflows/srma-api-count-only.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  counts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Europe PMC count
+        id: epmc
+        continue-on-error: true
+        run: |
+          mkdir -p count_evidence/europepmc
+          python srma_final_update/run_api_searches_corrected.py --source europepmc --count-only --outdir count_evidence/europepmc 2>&1 | tee count_evidence/europepmc.log
+      - name: OpenAlex count
+        id: oa
+        continue-on-error: true
+        env:
+          OPENALEX_API_KEY: ${{ secrets.OPENALEX_API_KEY }}
+        run: |
+          mkdir -p count_evidence/openalex
+          python srma_final_update/run_api_searches_corrected.py --source openalex --count-only --outdir count_evidence/openalex 2>&1 | tee count_evidence/openalex.log
+      - name: Record states
+        if: always()
+        run: |
+          printf 'EuropePMC=%s\nOpenAlex=%s\n' '${{ steps.epmc.outcome }}' '${{ steps.oa.outcome }}' | tee count_evidence/states.txt
+      - name: Upload count evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: srma-api-count-only-20260901
+          retention-days: 30
+          path: count_evidence/**
