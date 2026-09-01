@@ -1,0 +1,33 @@
+name: SRMA WHO IRIS Robust Native Export
+
+on:
+  push:
+    branches:
+      - srma-final-api-rerun-20260901
+    paths:
+      - '.github/workflows/srma-who-iris-robust.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run WHO IRIS robust exporter
+        run: python field_scope_qc/export_who_only_robust.py 2>&1 | tee who_iris_robust.log
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: srma-who-iris-robust-20260902
+          retention-days: 30
+          path: |
+            who_iris_robust.log
+            who_iris_robust/**
