@@ -1,0 +1,44 @@
+name: SRMA Field Scope Count QC v2
+
+on:
+  push:
+    branches:
+      - srma-final-api-rerun-20260901
+    paths:
+      - '.github/workflows/srma-field-scope-count-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scoped-counts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: OpenAlex title/abstract count
+        id: oa
+        continue-on-error: true
+        run: |
+          mkdir -p scoped_count_evidence
+          python field_scope_qc/count_scoped.py --source openalex 2>&1 | tee scoped_count_evidence/openalex_title_abstract.json
+      - name: Europe PMC TITLE_ABS count
+        id: epmc
+        continue-on-error: true
+        run: |
+          python field_scope_qc/count_scoped.py --source europepmc 2>&1 | tee scoped_count_evidence/europepmc_title_abs.json
+      - name: Record states
+        if: always()
+        run: |
+          printf 'OpenAlex=%s\nEuropePMC=%s\n' '${{ steps.oa.outcome }}' '${{ steps.epmc.outcome }}' | tee scoped_count_evidence/states.txt
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: srma-field-scope-counts-v2-20260901
+          retention-days: 30
+          path: scoped_count_evidence/**
