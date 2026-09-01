@@ -1,0 +1,32 @@
+name: SRMA Field Scope Count QC
+
+on:
+  push:
+    branches:
+      - srma-final-api-rerun-20260901
+    paths:
+      - '.github/workflows/srma-field-scope-count.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  field-scope-counts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run field-scoped count QC
+        run: |
+          mkdir -p field_scope_evidence
+          python srma_final_update/count_field_scoped_queries.py | tee field_scope_evidence/field_scope_counts.json
+      - name: Upload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: srma-field-scope-counts-20260901
+          retention-days: 30
+          path: field_scope_evidence/**
