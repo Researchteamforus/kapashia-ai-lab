@@ -1,0 +1,35 @@
+name: SRMA BDHS 2022 Vaccination Verification
+
+on:
+  push:
+    branches:
+      - srma-final-api-rerun-20260901
+    paths:
+      - '.github/workflows/srma-bdhs2022-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install PDF text utility
+        run: sudo apt-get update -qq && sudo apt-get install -y poppler-utils
+      - name: Verify official BDHS 2022 vaccination table
+        run: python field_scope_qc/extract_bdhs2022_vaccination.py 2>&1 | tee bdhs2022_verify.log
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: srma-bdhs2022-verification-20260901
+          retention-days: 30
+          path: |
+            bdhs2022_verify.log
+            bdhs2022_verification/**
