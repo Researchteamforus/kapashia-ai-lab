@@ -1,0 +1,79 @@
+name: SRMA Final API Rerun
+
+on:
+  push:
+    branches:
+      - srma-final-api-rerun-20260901
+    paths:
+      - 'srma_final_update/**'
+      - '.github/workflows/srma-final-api-rerun.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  final-api-rerun:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Dry-run protocol queries
+        run: |
+          python srma_final_update/run_api_searches_corrected.py --dry-run | tee dry_run_queries.json
+
+      - name: Run Europe PMC corrected export
+        id: epmc
+        continue-on-error: true
+        run: |
+          mkdir -p final_api_exports/europepmc
+          python srma_final_update/run_api_searches_corrected.py \
+            --source europepmc \
+            --outdir final_api_exports/europepmc \
+            2>&1 | tee europepmc_run.log
+
+      - name: Run OpenAlex corrected export
+        id: openalex
+        continue-on-error: true
+        env:
+          OPENALEX_API_KEY: ${{ secrets.OPENALEX_API_KEY }}
+        run: |
+          mkdir -p final_api_exports/openalex
+          python srma_final_update/run_api_searches_corrected.py \
+            --source openalex \
+            --outdir final_api_exports/openalex \
+            2>&1 | tee openalex_run.log
+
+      - name: Record run states and checksums
+        if: always()
+        run: |
+          printf 'EuropePMC_step=%s\nOpenAlex_step=%s\n' '${{ steps.epmc.outcome }}' '${{ steps.openalex.outcome }}' > run_states.txt
+          find final_api_exports -type f -maxdepth 3 -print0 2>/dev/null | sort -z | xargs -0 -r sha256sum > sha256_manifest.txt
+          echo '--- run states ---'
+          cat run_states.txt
+          echo '--- files ---'
+          find final_api_exports -maxdepth 3 -type f -ls || true
+          echo '--- checksums ---'
+          cat sha256_manifest.txt || true
+
+      - name: Upload final API evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: srma-final-api-rerun-20260901
+          if-no-files-found: warn
+          retention-days: 30
+          path: |
+            dry_run_queries.json
+            europepmc_run.log
+            openalex_run.log
+            run_states.txt
+            sha256_manifest.txt
+            final_api_exports/**
