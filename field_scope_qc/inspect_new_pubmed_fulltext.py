@@ -4,11 +4,11 @@ from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-UA='SRMA-Bangladesh-NewPubMed-Fulltext/1.0'
+UA='SRMA-Bangladesh-NewPubMed-Fulltext/1.1'
 OUT=Path('new_pubmed_fulltext'); OUT.mkdir(exist_ok=True)
 RECORDS=[
- {'pmid':'42676577','doi':'10.1002/hsr2.73160','label':'Bridging Equity Gaps'},
- {'pmid':'42646680','doi':'10.3390/vaccines14080661','label':'Pharmacist paediatric vaccination review'},
+ {'pmid':'42676577','doi':'10.1002/hsr2.73160','label':'Bridging Equity Gaps','nbib_pmcid':'PMC13527390'},
+ {'pmid':'42646680','doi':'10.3390/vaccines14080661','label':'Pharmacist paediatric vaccination review','nbib_pmcid':'PMC13517092'},
 ]
 
 def get(url, accept='*/*'):
@@ -25,26 +25,24 @@ def oai(pmcid):
     raw,final=get(url,'application/xml,text/xml'); return raw,final
 
 def node_text(node):
-    return re.sub(r'\s+',' ',' '.join(''.join(x.itertext()) for x in [node])).strip()
+    if node is None: return ''
+    return re.sub(r'\s+',' ',''.join(node.itertext())).strip()
 
 def extract(xmlbytes):
     root=ET.fromstring(xmlbytes)
     article=root.find('.//article')
     if article is None: return {'error':'article element not found'}
-    title=node_text(article.find('.//article-title')) if article.find('.//article-title') is not None else ''
+    title=node_text(article.find('.//article-title'))
     abstract=' '.join(node_text(x) for x in article.findall('.//abstract//p'))
     paragraphs=[node_text(x) for x in article.findall('.//body//p')]
     tables=[]
     for tw in article.findall('.//table-wrap'):
-        label=node_text(tw.find('./label')) if tw.find('./label') is not None else ''
-        cap=node_text(tw.find('./caption')) if tw.find('./caption') is not None else ''
-        table_txt=node_text(tw)
+        label=node_text(tw.find('./label')); cap=node_text(tw.find('./caption')); table_txt=node_text(tw)
         tables.append({'label':label,'caption':cap,'text':table_txt})
-    terms=['immuniz','vaccin','12–23','12-23','12 to 23','fully vaccin','full vaccin','complete vaccin','bdhs 2022','2022 bdhs','zero-dose','zero dose','child']
+    terms=['immuniz','immunis','vaccin','12–23','12-23','12 to 23','fully vaccin','full vaccin','complete vaccin','bdhs 2022','2022 bdhs','zero-dose','zero dose','child']
     hits=[]
     for i,p in enumerate(paragraphs):
-        lp=p.lower()
-        matched=[t for t in terms if t.lower() in lp]
+        lp=p.lower(); matched=[t for t in terms if t.lower() in lp]
         if matched: hits.append({'paragraph_index':i+1,'matched':matched,'text':p})
     thits=[]
     for t in tables:
@@ -59,12 +57,12 @@ def main():
         try:
             conv=idconv(rec['pmid']); row['idconv']=conv
             rs=conv.get('records') or []
-            pmcid=(rs[0].get('pmcid') if rs else None)
-            row['pmcid']=pmcid
+            pmcid=(rs[0].get('pmcid') if rs else None) or rec.get('nbib_pmcid')
+            row['pmcid']=pmcid; row['pmcid_source']='idconv' if (rs and rs[0].get('pmcid')) else 'PubMed NBIB fallback'
             if not pmcid:
                 row['status']='NO_PMC_FULLTEXT'; summary.append(row); continue
             raw,url=oai(pmcid); xmlpath=OUT/f"PMID_{rec['pmid']}_{pmcid}.xml"; xmlpath.write_bytes(raw)
-            ext=extract(raw); row['oai_url']=url; row['status']='FULLTEXT_RETRIEVED'; row['extraction']=ext
+            ext=extract(raw); row['oai_url']=url; row['status']='FULLTEXT_RETRIEVED' if 'error' not in ext else 'OAI_RECORD_NOT_READY'; row['extraction']=ext
             (OUT/f"PMID_{rec['pmid']}_extraction.json").write_text(json.dumps(ext,indent=2,ensure_ascii=False),encoding='utf-8')
         except Exception as e:
             row['status']='FAILED'; row['error']=repr(e)
