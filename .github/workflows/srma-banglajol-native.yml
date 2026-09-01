@@ -1,0 +1,33 @@
+name: SRMA BanglaJOL Native Export
+
+on:
+  push:
+    branches:
+      - srma-final-api-rerun-20260901
+    paths:
+      - '.github/workflows/srma-banglajol-native.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run BanglaJOL exporter
+        run: python field_scope_qc/export_banglajol_only.py 2>&1 | tee banglajol_native.log
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: srma-banglajol-native-20260902
+          retention-days: 30
+          path: |
+            banglajol_native.log
+            banglajol_native/**
