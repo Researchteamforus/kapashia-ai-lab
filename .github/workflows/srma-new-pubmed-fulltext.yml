@@ -22,12 +22,13 @@ jobs:
           python-version: '3.12'
       - name: Inspect new PubMed full text
         run: |
+          # rerun 2: PubMed NBIB PMCID fallback enabled
           python field_scope_qc/inspect_new_pubmed_fulltext.py 2>&1 | tee new_pubmed_fulltext.log
       - name: Upload evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: srma-new-pubmed-fulltext-20260901
+          name: srma-new-pubmed-fulltext-20260901-rerun2
           retention-days: 30
           path: |
             new_pubmed_fulltext.log
