@@ -23,12 +23,14 @@ jobs:
       - name: Install PDF text utility
         run: sudo apt-get update -qq && sudo apt-get install -y poppler-utils
       - name: Verify official BDHS 2022 vaccination table
-        run: python field_scope_qc/extract_bdhs2022_vaccination.py 2>&1 | tee bdhs2022_verify.log
+        run: |
+          # rerun 2 selects the true final report by vaccination-content score
+          python field_scope_qc/extract_bdhs2022_vaccination.py 2>&1 | tee bdhs2022_verify.log
       - name: Upload evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: srma-bdhs2022-verification-20260901
+          name: srma-bdhs2022-verification-20260901-rerun2
           retention-days: 30
           path: |
             bdhs2022_verify.log
