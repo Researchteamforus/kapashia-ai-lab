@@ -1,0 +1,40 @@
+name: SRMA WHO IRIS and BanglaJOL Native Logs
+
+on:
+  push:
+    branches:
+      - srma-final-api-rerun-20260901
+    paths:
+      - '.github/workflows/srma-native-source-logs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run WHO IRIS and BanglaJOL source logs
+        run: |
+          python field_scope_qc/export_who_banglajol.py 2>&1 | tee native_source_export.log
+      - name: Create checksums
+        if: always()
+        run: |
+          find native_source_exports -type f -print0 2>/dev/null | sort -z | xargs -0 -r sha256sum > native_source_sha256_manifest.txt
+          cat native_source_sha256_manifest.txt || true
+      - name: Upload evidence bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: srma-native-source-logs-20260901
+          retention-days: 30
+          path: |
+            native_source_export.log
+            native_source_sha256_manifest.txt
+            native_source_exports/**
