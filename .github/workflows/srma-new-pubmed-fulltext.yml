@@ -1,0 +1,34 @@
+name: SRMA New PubMed Fulltext Inspection
+
+on:
+  push:
+    branches:
+      - srma-final-api-rerun-20260901
+    paths:
+      - '.github/workflows/srma-new-pubmed-fulltext.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Inspect new PubMed full text
+        run: |
+          python field_scope_qc/inspect_new_pubmed_fulltext.py 2>&1 | tee new_pubmed_fulltext.log
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: srma-new-pubmed-fulltext-20260901
+          retention-days: 30
+          path: |
+            new_pubmed_fulltext.log
+            new_pubmed_fulltext/**
